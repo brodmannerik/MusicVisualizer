@@ -12,12 +12,13 @@ WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
+# Set up display
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Music Visualizer")
 
 # Load audio file
 try:
-    audio_data, sample_rate = librosa.load("Toco_Meu_Rio.wav", sr=None)
+    audio_data, sample_rate = librosa.load("example.wav", sr=None)
     print("WAV file loaded successfully")
 except Exception as e:
     print("Error loading WAV file:", e)
@@ -40,10 +41,8 @@ def update_visualization(amplitude):
     screen.fill(BLACK)
     points = []
     if amplitude == 0:
-        # Draw a flat line when amplitude is 0
         points = [(x, HEIGHT // 2) for x in range(WIDTH)]
     else:
-        # Scale amplitude to screen height and draw sine wave
         amplitude_scaled = amplitude * (HEIGHT // 2)
         for x in range(WIDTH):
             y = HEIGHT / 2 + amplitude_scaled * math.sin(x * 0.02)
