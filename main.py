@@ -4,9 +4,30 @@ import librosa
 import sounddevice as sd
 import math
 import sys
+import os
+
+def startMusicPlayer(song):
+    # Load audio file
+    try:
+        audio_data, sample_rate = librosa.load(song, sr=None)
+        print("WAV file loaded successfully")
+        duration = librosa.get_duration(y=audio_data, sr=sample_rate)
+        return audio_data, sample_rate, duration
+    except Exception as e:
+        print("Error loading WAV file:", e)
+        sys.exit(1)
+
+def update_visualization(amplitude, screen):
+    screen.fill((0, 0, 0))  # Clear the screen
+    if amplitude == 0:
+        pygame.draw.line(screen, (255, 255, 255), (0, screen.get_height() // 2), (screen.get_width(), screen.get_height() // 2), 2)
+    else:
+        amplitude_scaled = amplitude * (screen.get_height() // 4)  # Adjust amplitude scale
+        points = [(x, screen.get_height() // 2 + int(amplitude_scaled * math.sin(x * 0.02))) for x in range(screen.get_width())]
+        pygame.draw.lines(screen, (255, 255, 255), False, points, 2)
+    pygame.display.flip()
 
 pygame.init()
-
 # Constants
 WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
@@ -16,43 +37,21 @@ BLACK = (0, 0, 0)
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Music Visualizer")
 
-# Load audio file
-try:
-    audio_data, sample_rate = librosa.load("example.wav", sr=None)
-    print("WAV file loaded successfully")
-except Exception as e:
-    print("Error loading WAV file:", e)
-    sys.exit(1)
+inputdirectory = input("Enter an input directory: ")
 
-# Normalize audio data to range [0, 1]
-normalized_audio = (audio_data - np.min(audio_data)) / (np.max(audio_data) - np.min(audio_data))
+list = os.listdir(inputdirectory)
+print(list)
 
-def get_amplitude_data():
-    num_samples_per_ms = sample_rate // 1000  # Samples per millisecond
-    for millisecond in range(len(normalized_audio) // num_samples_per_ms):
-        start = millisecond * num_samples_per_ms
-        end = start + num_samples_per_ms
-        amplitude = np.mean(normalized_audio[start:end])
-        yield amplitude
+song = input("\nEnter a song name: ")
+file = os.path.join(inputdirectory, song)
 
-amplitude_generator = get_amplitude_data()
-
-def update_visualization(amplitude):
-    screen.fill(BLACK)
-    points = []
-    if amplitude == 0:
-        points = [(x, HEIGHT // 2) for x in range(WIDTH)]
-    else:
-        amplitude_scaled = amplitude * (HEIGHT // 2)
-        for x in range(WIDTH):
-            y = HEIGHT / 2 + amplitude_scaled * math.sin(x * 0.02)
-            points.append((x, int(y)))
-    pygame.draw.lines(screen, WHITE, False, points, 2)
-    pygame.display.flip()
+# Start music player
+audio_data, sample_rate, duration = startMusicPlayer(file)
 
 # Play audio
-sd.play(normalized_audio, sample_rate)
+sd.play(audio_data, sample_rate)
 
+start_time = pygame.time.get_ticks()
 running = True
 clock = pygame.time.Clock()
 while running:
@@ -60,13 +59,13 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    try:
-        amplitude = next(amplitude_generator)
-        print(amplitude)
-    except StopIteration:
+    current_time = pygame.time.get_ticks()
+    elapsed_time = current_time - start_time
+    if elapsed_time >= duration * 1000:  # Convert duration to milliseconds
         break
 
-    update_visualization(amplitude)
+    amplitude = np.mean(audio_data[int((elapsed_time / 1000) * sample_rate):int(((elapsed_time + 1) / 1000) * sample_rate)])
+    update_visualization(amplitude, screen)
     clock.tick(1000)
 
 sd.wait()
