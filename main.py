@@ -1,74 +1,64 @@
 import pygame
-import math
-import pyaudio
-from pydub import AudioSegment
+import numpy as np
+import librosa
+import sounddevice as sd
+import time
 
-#pygame init
 pygame.init()
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-clock = pygame.time.Clock()
-pygame.display.set_caption('Audio Visualizer')
 
-p = pyaudio.PyAudio()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Music Visualizer")
 
-mp3_file = "Toco_Meu_Rio.mp3"
-audio = AudioSegment.from_mp3(mp3_file)
+try:
+    audio_data, sample_rate = librosa.load("Toco_Meu_Rio.wav", sr=None)
+    print("WAV file loaded successfully")
+except Exception as e:
+    print("Error loading WAV file:", e)
+    sys.exit(1)
 
-# Convert to PCM audio data
-pcm_data = audio.raw_data
-format = p.get_format_from_width(audio.sample_width)
-channels = audio.channels
-rate = audio.frame_rate
+# Normalize audio data to range [0, 1]
+normalized_audio = (audio_data - np.min(audio_data)) / (np.max(audio_data) - np.min(audio_data))
 
-# Open PyAudio stream
-stream = p.open(format=format,
-                channels=channels,
-                rate=rate,
-                output=True)
+# Define colors
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
 
-def play_audio():
+def get_amplitude_data():
+    num_samples_per_ms = sample_rate // 1000  # Samples per millisecond
+    for millisecond in range(len(normalized_audio) // num_samples_per_ms):
+        start = millisecond * num_samples_per_ms
+        end = start + num_samples_per_ms
+        amplitude = np.mean(normalized_audio[start:end])
+        yield amplitude
 
-    # Play audio
-    stream.write(pcm_data)
-    print(pcm_data)
+amplitude_generator = get_amplitude_data()
 
-    # Close PyAudio stream
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+def update_visualization(amplitude):
+    screen.fill(BLACK)
+    line_height = HEIGHT - int(amplitude * HEIGHT)
+    pygame.draw.line(screen, WHITE, (0, line_height), (WIDTH, line_height), 2)
+    pygame.display.flip()
 
-def draw_sine_wave(amplitude):
-     screen.fill((0, 0, 0))
-     points = []
-     for x in range(SCREEN_WIDTH):
-         y = SCREEN_HEIGHT / 2 + int(amplitude * math.sin(x * 0.02))
-         points.append((x, y))
-     pygame.draw.lines(screen, (255, 255, 255), False, points, 2)
-     pygame.display.flip()
+sd.play(normalized_audio, sample_rate)
 
 running = True
-# amplitude = 100
-
+clock = pygame.time.Clock()
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        # amplitude_adjust = get_microphone_input_level() / 50
-        # amplitude = max(10, amplitude_adjust)
-        #
-        # input_level = get_microphone_input_level()
-        # print(input_level)
+    try:
+        amplitude = next(amplitude_generator)
+        print(amplitude)
+    except StopIteration:
+        break
 
-        play_audio()
+    update_visualization(amplitude)
+    clock.tick(1000)
 
-        # draw_sine_wave(amplitude)
-        # pygame.display.flip()
-        clock.tick(60)
+sd.wait()
 
 pygame.quit()
-# stream.stop_stream()
-# stream.close()
-# p.terminate()
+sys.exit()
