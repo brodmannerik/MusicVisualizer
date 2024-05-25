@@ -22,14 +22,17 @@ format = p.get_format_from_width(audio.sample_width)
 channels = audio.channels
 rate = audio.frame_rate
 
+# Open PyAudio stream
+stream = p.open(format=format,
+                channels=channels,
+                rate=rate,
+                output=True)
+
 def play_audio():
-    # Open PyAudio stream
-    stream = p.open(format=format,
-                    channels=channels,
-                    rate=rate,
-                    output=True)
+
     # Play audio
     stream.write(pcm_data)
+    print(pcm_data)
 
     # Close PyAudio stream
     stream.stop_stream()
